@@ -1,8 +1,7 @@
-namespace Skarp.Version.Cli.Model
+namespace dotnet.version.changelog.Model;
+
+public class ProductOutputInfo
 {
-    public class ProductOutputInfo
-    {
-        public string Name { get; set; }
-        public string Version { get; set; }
-    }
+    public string Name { get; set; }
+    public string Version { get; set; }
 }

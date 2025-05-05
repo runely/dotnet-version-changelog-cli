@@ -6,7 +6,7 @@
 [![Sonar bugs][sonarbugslogo]][sonarqubelink]
 [![Sonar code smells][sonarcodesmellslogo]][sonarqubelink]
 
-# dotnet-version-cli
+# dotnet-version-changelog-cli
 
 This repository contains the source code for an [npm/yarn version][1] inspired dotnet global tool for dotnet with full [SemVer 2.0][semver2] compatibility!
 

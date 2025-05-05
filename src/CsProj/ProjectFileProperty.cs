@@ -1,12 +1,11 @@
-﻿namespace Skarp.Version.Cli.CsProj
+﻿namespace dotnet.version.changelog.CsProj;
+
+public enum ProjectFileProperty
 {
-    public enum ProjectFileProperty
-    {
-        Version,
-        PackageVersion,
-        PackageId,
-        Title,
-        VersionPrefix,
-        VersionSuffix
-    }
+    Version,
+    PackageVersion,
+    PackageId,
+    Title,
+    VersionPrefix,
+    VersionSuffix
 }

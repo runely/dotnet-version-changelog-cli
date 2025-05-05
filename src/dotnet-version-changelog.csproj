@@ -5,7 +5,7 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotnet-version-changelog</ToolCommandName>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <RootNamespace>Skarp.Version.Cli</RootNamespace>
+    <RootNamespace>dotnet.version.changelog</RootNamespace>
     <Version>5.0.0</Version>
     <Title>dotnet-version-changelog-cli</Title>
     <Authors>runely</Authors>

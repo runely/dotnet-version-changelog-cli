@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>Skarp.Version.Cli.Test</RootNamespace>
+    <RootNamespace>dotnet.version.changelog.Test</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="1.2.1">
@@ -19,6 +19,6 @@
     <PackageReference Include="Microsoft.Extensions.CommandLineUtils" Version="1.1.1" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\src\dotnet-version.csproj" />
+    <ProjectReference Include="..\src\dotnet-version-changelog.csproj" />
   </ItemGroup>
 </Project>

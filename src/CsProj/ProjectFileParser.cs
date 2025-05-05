@@ -3,134 +3,133 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Linq;
 
-namespace Skarp.Version.Cli.CsProj
+namespace dotnet.version.changelog.CsProj;
+
+public class ProjectFileParser
 {
-    public class ProjectFileParser
+    public virtual string PackageName { get; private set; }
+
+    public virtual string PackageVersion { get; private set; }
+
+    public virtual string Version { get; private set; }
+
+    public virtual string VersionPrefix { get; private set; }
+
+    public virtual string VersionSuffix { get; private set; }
+
+    public virtual ProjectFileProperty DesiredVersionSource { get; private set; }
+
+    public ProjectFileProperty VersionSource
     {
-        public virtual string PackageName { get; private set; }
-
-        public virtual string PackageVersion { get; private set; }
-
-        public virtual string Version { get; private set; }
-
-        public virtual string VersionPrefix { get; private set; }
-
-        public virtual string VersionSuffix { get; private set; }
-
-        public virtual ProjectFileProperty DesiredVersionSource { get; private set; }
-
-        public ProjectFileProperty VersionSource
+        get
         {
-            get
+            if (DesiredVersionSource == ProjectFileProperty.Version)
             {
-                if (DesiredVersionSource == ProjectFileProperty.Version)
-                {
-                    return string.IsNullOrWhiteSpace(Version)
-                        ? ProjectFileProperty.VersionPrefix
-                        : ProjectFileProperty.Version;
-                }
-
-                return ProjectFileProperty.PackageVersion;
+                return string.IsNullOrWhiteSpace(Version)
+                    ? ProjectFileProperty.VersionPrefix
+                    : ProjectFileProperty.Version;
             }
+
+            return ProjectFileProperty.PackageVersion;
         }
+    }
 
-        private IEnumerable<XElement> _propertyGroup { get; set; }
+    private IEnumerable<XElement> PropertyGroup { get; set; }
 
-        protected virtual void Load(string xmlDocument, ProjectFileProperty property)
+    protected virtual void Load(string xmlDocument, ProjectFileProperty property)
+    {
+        LoadPropertyGroup(xmlDocument);
+
+        XElement propertyElement = LoadProperty(property);
+
+        switch (property)
         {
-            LoadPropertyGroup(xmlDocument);
-
-            XElement propertyElement = LoadProperty(property);
-
-            switch (property)
-            {
-                case ProjectFileProperty.Version:
-                    Version = propertyElement?.Value ?? string.Empty;
-                    break;
-                case ProjectFileProperty.PackageVersion:
-                    PackageVersion = propertyElement?.Value ?? string.Empty;
-                    break;
-                case ProjectFileProperty.Title:
-                    var defaultPropertyElement = LoadProperty(ProjectFileProperty.PackageId);
-                    PackageName = propertyElement?.Value ?? defaultPropertyElement?.Value ?? string.Empty;
-                    break;
-                case ProjectFileProperty.VersionPrefix:
-                    VersionPrefix = propertyElement?.Value ?? string.Empty;
-                    break;
-                case ProjectFileProperty.VersionSuffix:
-                    VersionSuffix = propertyElement?.Value ?? string.Empty;
-                    break;
-            }
+            case ProjectFileProperty.Version:
+                Version = propertyElement?.Value ?? string.Empty;
+                break;
+            case ProjectFileProperty.PackageVersion:
+                PackageVersion = propertyElement?.Value ?? string.Empty;
+                break;
+            case ProjectFileProperty.Title:
+                var defaultPropertyElement = LoadProperty(ProjectFileProperty.PackageId);
+                PackageName = propertyElement?.Value ?? defaultPropertyElement?.Value ?? string.Empty;
+                break;
+            case ProjectFileProperty.VersionPrefix:
+                VersionPrefix = propertyElement?.Value ?? string.Empty;
+                break;
+            case ProjectFileProperty.VersionSuffix:
+                VersionSuffix = propertyElement?.Value ?? string.Empty;
+                break;
         }
+    }
 
 
-        public virtual void Load(string xmlDocument, ProjectFileProperty versionSource,  params ProjectFileProperty[] properties)
-        {
-            DesiredVersionSource = versionSource;
+    public virtual void Load(string xmlDocument, ProjectFileProperty versionSource,  params ProjectFileProperty[] properties)
+    {
+        DesiredVersionSource = versionSource;
             
-            if (properties == null || !properties.Any())
-            {
-                properties = new[]
-                {
-                    ProjectFileProperty.Title,
-                    ProjectFileProperty.Version,
-                    ProjectFileProperty.PackageId,
-                    ProjectFileProperty.PackageVersion,
-                    ProjectFileProperty.VersionPrefix,
-                    ProjectFileProperty.VersionSuffix
-                };
-            }
-
-            // Try to load xmlDocument even if there is no properties to be loaded
-            // in order to verify if project file is well formed
-            LoadPropertyGroup(xmlDocument);
-
-            foreach (var property in properties)
-            {
-                Load(xmlDocument, property);
-            }
-        }
-
-        public string GetHumanReadableVersionFromSource()
+        if (properties == null || !properties.Any())
         {
-            return VersionSource switch
+            properties = new[]
             {
-                ProjectFileProperty.Version => Version,
-                ProjectFileProperty.VersionPrefix => $"{VersionPrefix}-{VersionSuffix}",
-                ProjectFileProperty.PackageVersion => PackageVersion,
-                _ => throw new ArgumentOutOfRangeException($"Unknown version source {VersionSource}")
+                ProjectFileProperty.Title,
+                ProjectFileProperty.Version,
+                ProjectFileProperty.PackageId,
+                ProjectFileProperty.PackageVersion,
+                ProjectFileProperty.VersionPrefix,
+                ProjectFileProperty.VersionSuffix
             };
         }
 
-        private XElement LoadProperty(ProjectFileProperty property)
+        // Try to load xmlDocument even if there is no properties to be loaded
+        // in order to verify if project file is well formed
+        LoadPropertyGroup(xmlDocument);
+
+        foreach (var property in properties)
         {
-            XElement propertyElement = (
-                from prop in _propertyGroup.Elements()
-                where prop.Name == property.ToString("g")
-                select prop
-            ).FirstOrDefault();
-            return propertyElement;
+            Load(xmlDocument, property);
+        }
+    }
+
+    public string GetHumanReadableVersionFromSource()
+    {
+        return VersionSource switch
+        {
+            ProjectFileProperty.Version => Version,
+            ProjectFileProperty.VersionPrefix => $"{VersionPrefix}-{VersionSuffix}",
+            ProjectFileProperty.PackageVersion => PackageVersion,
+            _ => throw new ArgumentOutOfRangeException($"Unknown version source {VersionSource}")
+        };
+    }
+
+    private XElement LoadProperty(ProjectFileProperty property)
+    {
+        XElement propertyElement = (
+            from prop in PropertyGroup.Elements()
+            where prop.Name == property.ToString("g")
+            select prop
+        ).FirstOrDefault();
+        return propertyElement;
+    }
+
+    private void LoadPropertyGroup(string xmlDocument)
+    {
+        // Check if it has been already loaded
+        if (PropertyGroup != null) return;
+
+        var xml = XDocument.Parse(xmlDocument, LoadOptions.PreserveWhitespace);
+
+        // Project should be root of the document
+        var project = xml.Elements("Project");
+        var xProject = project as IList<XElement> ?? project.ToList();
+        if (!xProject.Any())
+        {
+            throw new ArgumentException(
+                "The provided csproj file seems malformed - no <Project> in the root",
+                paramName: nameof(xmlDocument)
+            );
         }
 
-        private void LoadPropertyGroup(string xmlDocument)
-        {
-            // Check if it has been already loaded
-            if (_propertyGroup != null) return;
-
-            var xml = XDocument.Parse(xmlDocument, LoadOptions.PreserveWhitespace);
-
-            // Project should be root of the document
-            var project = xml.Elements("Project");
-            var xProject = project as IList<XElement> ?? project.ToList();
-            if (!xProject.Any())
-            {
-                throw new ArgumentException(
-                    "The provided csproj file seems malformed - no <Project> in the root",
-                    paramName: nameof(xmlDocument)
-                );
-            }
-
-            _propertyGroup = xProject.Elements("PropertyGroup");
-        }
+        PropertyGroup = xProject.Elements("PropertyGroup");
     }
 }

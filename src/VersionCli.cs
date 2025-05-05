@@ -1,173 +1,170 @@
 using System;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
-using Skarp.Version.Cli.CsProj;
-using Skarp.Version.Cli.Model;
-using Skarp.Version.Cli.Vcs;
-using Skarp.Version.Cli.Versioning;
+using System.Text.Json;
+using dotnet.version.changelog.CsProj;
+using dotnet.version.changelog.Model;
+using dotnet.version.changelog.Vcs;
+using dotnet.version.changelog.Versioning;
 
-namespace Skarp.Version.Cli
+namespace dotnet.version.changelog;
+
+public class VersionCli
 {
-    public class VersionCli
+    private readonly IVcs _vcsTool;
+    private readonly ProjectFileDetector _fileDetector;
+    private readonly ProjectFileParser _fileParser;
+    private readonly VcsParser _vcsParser;
+    private readonly ProjectFileVersionPatcher _fileVersionPatcher;
+    private readonly SemVerBumper _bumper;
+
+    public VersionCli(
+        IVcs vcsClient,
+        ProjectFileDetector fileDetector,
+        ProjectFileParser fileParser,
+        VcsParser vcsParser,
+        ProjectFileVersionPatcher fileVersionPatcher,
+        SemVerBumper bumper
+    )
     {
-        private readonly IVcs _vcsTool;
-        private readonly ProjectFileDetector _fileDetector;
-        private readonly ProjectFileParser _fileParser;
-        private readonly VcsParser _vcsParser;
-        private readonly ProjectFileVersionPatcher _fileVersionPatcher;
-        private readonly SemVerBumper _bumper;
+        _vcsTool = vcsClient;
+        _fileDetector = fileDetector;
+        _fileParser = fileParser;
+        _vcsParser = vcsParser;
+        _fileVersionPatcher = fileVersionPatcher;
+        _bumper = bumper;
+    }
 
-        public VersionCli(
-            IVcs vcsClient,
-            ProjectFileDetector fileDetector,
-            ProjectFileParser fileParser,
-            VcsParser vcsParser,
-            ProjectFileVersionPatcher fileVersionPatcher,
-            SemVerBumper bumper
-        )
+    public VersionInfo Execute(VersionCliArgs args)
+    {
+        if (!args.DryRun && args.DoVcs && !_vcsTool.IsVcsToolPresent())
         {
-            _vcsTool = vcsClient;
-            _fileDetector = fileDetector;
-            _fileParser = fileParser;
-            _vcsParser = vcsParser;
-            _fileVersionPatcher = fileVersionPatcher;
-            _bumper = bumper;
+            throw new OperationCanceledException(
+                $"Unable to find the vcs tool {_vcsTool.ToolName()} in your path");
         }
 
-        public VersionInfo Execute(VersionCliArgs args)
+        if (!args.DryRun && args.DoVcs && !_vcsTool.IsRepositoryClean())
         {
-            if (!args.DryRun && args.DoVcs && !_vcsTool.IsVcsToolPresent())
-            {
-                throw new OperationCanceledException(
-                    $"Unable to find the vcs tool {_vcsTool.ToolName()} in your path");
-            }
+            throw new OperationCanceledException(
+                "You currently have uncomitted changes in your repository, please commit these and try again");
+        }
 
-            if (!args.DryRun && args.DoVcs && !_vcsTool.IsRepositoryClean())
-            {
-                throw new OperationCanceledException(
-                    "You currently have uncomitted changes in your repository, please commit these and try again");
-            }
+        var csProjXml = _fileDetector.FindAndLoadCsProj(args.CsProjFilePath);
+        _fileParser.Load(
+            csProjXml,
+            args.ProjectFilePropertyName,
+            ProjectFileProperty.Version, ProjectFileProperty.PackageVersion, ProjectFileProperty.VersionSuffix,
+            ProjectFileProperty.VersionPrefix
+        );
 
-            var csProjXml = _fileDetector.FindAndLoadCsProj(args.CsProjFilePath);
-            _fileParser.Load(
-                csProjXml,
-                args.ProjectFilePropertyName,
-                ProjectFileProperty.Version, ProjectFileProperty.PackageVersion, ProjectFileProperty.VersionSuffix,
-                ProjectFileProperty.VersionPrefix
+        var currentSemVer = GetCurrentSemVerFromSource();
+
+        var bumpedSemVer = _bumper.Bump(
+            currentSemVer,
+            args.VersionBump,
+            args.SpecificVersionToApply,
+            args.BuildMeta,
+            args.PreReleasePrefix
+        );
+
+        var theOutput = new VersionInfo
+        {
+            Product = new ProductOutputInfo
+            {
+                Name = ProductInfo.Name,
+                Version = ProductInfo.Version
+            },
+            OldVersion = currentSemVer.ToSemVerVersionString(_fileParser),
+            NewVersion = bumpedSemVer.ToSemVerVersionString(_fileParser),
+            ProjectFile = _fileDetector.ResolvedCsProjFile,
+            VersionStrategy = args.VersionBump.ToString().ToLowerInvariant()
+        };
+
+        if (!args.DryRun) // if we are not in dry run mode, then we should go ahead
+        {
+            _fileVersionPatcher.Load(csProjXml);
+
+            _fileVersionPatcher.PatchField(
+                bumpedSemVer.ToSemVerVersionString(_fileParser),
+                _fileParser.VersionSource
             );
 
-            var currentSemVer = GetCurrentSemVerFromSource();
-
-            var bumpedSemVer = _bumper.Bump(
-                currentSemVer,
-                args.VersionBump,
-                args.SpecificVersionToApply,
-                args.BuildMeta,
-                args.PreReleasePrefix
+            _fileVersionPatcher.Flush(
+                _fileDetector.ResolvedCsProjFile
             );
 
-            var theOutput = new VersionInfo
+            if (args.DoVcs)
             {
-                Product = new ProductOutputInfo
-                {
-                    Name = ProductInfo.Name,
-                    Version = ProductInfo.Version
-                },
-                OldVersion = currentSemVer.ToSemVerVersionString(_fileParser),
-                NewVersion = bumpedSemVer.ToSemVerVersionString(_fileParser),
-                ProjectFile = _fileDetector.ResolvedCsProjFile,
-                VersionStrategy = args.VersionBump.ToString().ToLowerInvariant()
-            };
-
-            if (!args.DryRun) // if we are not in dry run mode, then we should go ahead
-            {
-                _fileVersionPatcher.Load(csProjXml);
-
-                _fileVersionPatcher.PatchField(
-                    bumpedSemVer.ToSemVerVersionString(_fileParser),
-                    _fileParser.VersionSource
-                );
-
-                _fileVersionPatcher.Flush(
-                    _fileDetector.ResolvedCsProjFile
-                );
-
-                if (args.DoVcs)
-                {
-                    _fileParser.Load(csProjXml, ProjectFileProperty.Title);
-                    // Run git commands
-                    _vcsTool.Commit(_fileDetector.ResolvedCsProjFile,
-                        _vcsParser.Commit(theOutput, _fileParser, args.CommitMessage));
-                    _vcsTool.Tag(_vcsParser.Tag(theOutput, _fileParser, args.VersionControlTag));
-                }
+                _fileParser.Load(csProjXml, ProjectFileProperty.Title);
+                // Run git commands
+                _vcsTool.Commit(_fileDetector.ResolvedCsProjFile,
+                    _vcsParser.Commit(theOutput, _fileParser, args.CommitMessage));
+                _vcsTool.Tag(_vcsParser.Tag(theOutput, _fileParser, args.VersionControlTag));
             }
-
-            if (args.OutputFormat == OutputFormat.Json)
-            {
-                WriteJsonToStdout(theOutput);
-            }
-            else if (args.OutputFormat == OutputFormat.Bare)
-            {
-                Console.WriteLine(bumpedSemVer.ToSemVerVersionString(_fileParser));
-            }
-            else
-            {
-                Console.WriteLine(
-                    $"Bumped {_fileDetector.ResolvedCsProjFile} to version {bumpedSemVer.ToSemVerVersionString(_fileParser)}");
-            }
-
-            return theOutput;
         }
 
-        private SemVer GetCurrentSemVerFromSource()
+        if (args.OutputFormat == OutputFormat.Json)
         {
-            return _fileParser.VersionSource switch
-            {
-                ProjectFileProperty.Version => SemVer.FromString(string.IsNullOrWhiteSpace(_fileParser.Version) ? "0.0.0" : _fileParser.Version),
-                ProjectFileProperty.PackageVersion => SemVer.FromString(string.IsNullOrWhiteSpace(_fileParser.PackageVersion) ? "0.0.0" : _fileParser.PackageVersion),
-                _ => SemVer.FromString(string.IsNullOrWhiteSpace(_fileParser.VersionPrefix) ? "0.0.0" : _fileParser.VersionPrefix)
-            };
+            WriteJsonToStdout(theOutput);
         }
-
-        public void DumpVersion(VersionCliArgs args)
+        else if (args.OutputFormat == OutputFormat.Bare)
         {
-            var csProjXml = _fileDetector.FindAndLoadCsProj(args.CsProjFilePath);
-            _fileParser.Load(csProjXml, args.ProjectFilePropertyName);
-            
-            switch (args.OutputFormat)
-            {
-                case OutputFormat.Json:
-                    var theOutput = new
-                    {
-                        Product = new
-                        {
-                            Name = ProductInfo.Name,
-                            Version = ProductInfo.Version
-                        },
-                        CurrentVersion = _fileParser.GetHumanReadableVersionFromSource(),
-                        ProjectFile = _fileDetector.ResolvedCsProjFile,
-                    };
-                    WriteJsonToStdout(theOutput);
-                    break;
-                case OutputFormat.Bare:
-                    Console.WriteLine(_fileParser.GetHumanReadableVersionFromSource());
-                    break;
-                case OutputFormat.Text:
-                default:
-                    Console.WriteLine("Project version is: {0}\t{1}", Environment.NewLine,
-                        _fileParser.GetHumanReadableVersionFromSource());
-                    break;
-            }
+            Console.WriteLine(bumpedSemVer.ToSemVerVersionString(_fileParser));
         }
-
-        private static void WriteJsonToStdout(object theOutput)
+        else
         {
             Console.WriteLine(
-                JsonConvert.SerializeObject(
-                    theOutput, new JsonSerializerSettings
-                    {
-                        ContractResolver = new CamelCasePropertyNamesContractResolver()
-                    }));
+                $"Bumped {_fileDetector.ResolvedCsProjFile} to version {bumpedSemVer.ToSemVerVersionString(_fileParser)}");
         }
+
+        return theOutput;
+    }
+
+    private SemVer GetCurrentSemVerFromSource()
+    {
+        return _fileParser.VersionSource switch
+        {
+            ProjectFileProperty.Version => SemVer.FromString(string.IsNullOrWhiteSpace(_fileParser.Version) ? "0.0.0" : _fileParser.Version),
+            ProjectFileProperty.PackageVersion => SemVer.FromString(string.IsNullOrWhiteSpace(_fileParser.PackageVersion) ? "0.0.0" : _fileParser.PackageVersion),
+            _ => SemVer.FromString(string.IsNullOrWhiteSpace(_fileParser.VersionPrefix) ? "0.0.0" : _fileParser.VersionPrefix)
+        };
+    }
+
+    public void DumpVersion(VersionCliArgs args)
+    {
+        var csProjXml = _fileDetector.FindAndLoadCsProj(args.CsProjFilePath);
+        _fileParser.Load(csProjXml, args.ProjectFilePropertyName);
+            
+        switch (args.OutputFormat)
+        {
+            case OutputFormat.Json:
+                var theOutput = new
+                {
+                    Product = new
+                    {
+                        ProductInfo.Name,
+                        ProductInfo.Version
+                    },
+                    CurrentVersion = _fileParser.GetHumanReadableVersionFromSource(),
+                    ProjectFile = _fileDetector.ResolvedCsProjFile,
+                };
+                WriteJsonToStdout(theOutput);
+                break;
+            case OutputFormat.Bare:
+                Console.WriteLine(_fileParser.GetHumanReadableVersionFromSource());
+                break;
+            case OutputFormat.Text:
+            default:
+                Console.WriteLine("Project version is: {0}\t{1}", Environment.NewLine,
+                    _fileParser.GetHumanReadableVersionFromSource());
+                break;
+        }
+    }
+
+    private static void WriteJsonToStdout(object theOutput)
+    {
+        Console.WriteLine(
+            JsonSerializer.Serialize(theOutput, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }));
     }
 }

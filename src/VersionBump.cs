@@ -1,38 +1,37 @@
-namespace Skarp.Version.Cli
+namespace dotnet.version.changelog;
+
+/// <summary>
+/// Enumerates the possible version bumps
+/// </summary>
+public enum VersionBump
 {
-    /// <summary>
-    /// Enumerates the possible version bumps
-    /// </summary>
-    public enum VersionBump
-    {
-        // Not supplied or parsing error or something - we can't bump `unknown`
-        Unknown, 
+    // Not supplied or parsing error or something - we can't bump `unknown`
+    Unknown, 
         
-        Major,
+    Major,
 
-        Minor,
+    Minor,
 
-        Patch,
+    Patch,
 
-        PreMajor,
+    PreMajor,
         
-        PreMinor,
+    PreMinor,
         
-        PrePatch,
+    PrePatch,
      
-        /// <summary>
-        /// Increment the PreRelease indetifier (if it is numeric and rolled by this tool)
-        /// </summary>
-        PreRelease,
+    /// <summary>
+    /// Increment the PreRelease indetifier (if it is numeric and rolled by this tool)
+    /// </summary>
+    PreRelease,
         
-        /// <summary>
-        /// Apply a specific, given, version to the project file
-        /// </summary>
-        Specific,
+    /// <summary>
+    /// Apply a specific, given, version to the project file
+    /// </summary>
+    Specific,
 
-        /// <summary>
-        /// Do not apply any changes.
-        /// </summary>
-        None
-    }
+    /// <summary>
+    /// Do not apply any changes.
+    /// </summary>
+    None
 }

@@ -1,31 +1,30 @@
-using Skarp.Version.Cli.Vcs.Git;
+using dotnet.version.changelog.Vcs.Git;
 using Xunit;
 
-namespace Skarp.Version.Cli.Test
+namespace dotnet.version.changelog.Test;
+
+public class GitVcsTest
 {
-    public class GitVcsTest
+    private readonly GitVcs _vcs;
+
+    public GitVcsTest()
     {
-        private readonly GitVcs _vcs;
+        _vcs = new GitVcs();
+    }
 
-        public GitVcsTest()
-        {
-            _vcs = new GitVcs();
-        }
+    [Fact(
+        Skip = "Dont run on build servers"
+    )]
+    public void DetectingGitOnMachineWorks()
+    {
+        Assert.True(_vcs.IsVcsToolPresent());
+    }
 
-        [Fact(
-            Skip = "Dont run on build servers"
-        )]
-        public void DetectingGitOnMachineWorks()
-        {
-            Assert.True(_vcs.IsVcsToolPresent());
-        }
-
-        [Fact(
-            Skip = "Dont run on build servers"
-        )]
-        public void IsRepositoryCleanWorks()
-        {
-            Assert.True(_vcs.IsRepositoryClean());
-        }
+    [Fact(
+        Skip = "Dont run on build servers"
+    )]
+    public void IsRepositoryCleanWorks()
+    {
+        Assert.True(_vcs.IsRepositoryClean());
     }
 }
