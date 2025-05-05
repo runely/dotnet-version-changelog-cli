@@ -1,27 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>dotnet-version</ToolCommandName>
+    <ToolCommandName>dotnet-version-changelog</ToolCommandName>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <RootNamespace>Skarp.Version.Cli</RootNamespace>
-    <Version>4.0.0</Version>
-    <Title>dotnet-version-cli</Title>
-    <Authors>nover</Authors>
-    <Description>A dotnet core global tool for changing your csproj version and automatically comitting and tagging - npm version style.</Description>
-    <PackageTags>core;version;npm version;version patch;</PackageTags>
-    <PackageProjectUrl>https://github.com/skarpdev/dotnet-version-cli/</PackageProjectUrl>
-    <PackageLicense>https://raw.githubusercontent.com/skarpdev/dotnet-version-cli/master/LICENSE</PackageLicense>
+    <Version>5.0.0</Version>
+    <Title>dotnet-version-changelog-cli</Title>
+    <Authors>runely</Authors>
+    <Description>A dotnet core global tool for changing your csproj version and automatically comitting, creating a changelog and tagging - npm version style.</Description>
+    <PackageTags>core;version;npm version;version patch;changelog;</PackageTags>
+    <PackageProjectUrl>https://github.com/runely/dotnet-version-changelog-cli/</PackageProjectUrl>
+    <PackageLicense>https://github.com/runely/dotnet-version-changelog-cli/blob/master/LICENSE</PackageLicense>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/skarpdev/dotnet-version-cli/</RepositoryUrl>
-    <PackageId>dotnet-version-cli</PackageId>
-    <Company>SKARP ApS</Company>
-    <ProjectGuid>1ae7aff7-e333-4205-aa1b-b8a8a79b4a87</ProjectGuid>
+    <RepositoryUrl>https://github.com/runely/dotnet-version-changelog-cli/</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.2" />
     <PackageReference Include="Microsoft.Extensions.CommandLineUtils" Version="1.1.1" />
   </ItemGroup>
 </Project>
