@@ -1,8 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net6.0;net7.0;net8.0</TargetFrameworks>
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>Skarp.Version.Cli.Test</RootNamespace>
-    <ProjectGuid>fb420acf-9e12-42b6-b724-1eee9cbf251e</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="1.2.1">
